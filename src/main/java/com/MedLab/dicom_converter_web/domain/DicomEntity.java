@@ -19,6 +19,10 @@ public class DicomEntity {
     private String filePath;
     private LocalDateTime uploadDate;
 
+    private String pngPath;
+    private String conversionStatus;
+    private LocalDateTime convertedAt;
+
     private String patientName;
     private String patientId;
     private String studyDate; //촬영 날짜

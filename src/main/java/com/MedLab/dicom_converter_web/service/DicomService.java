@@ -29,7 +29,7 @@ import java.util.UUID;
 public class DicomService {
     private final DicomRepository dicomRepository; // Constructor Dependency Injection
 
-    private final String uploadDir = "E:/Medical Dicom Project/storage";
+    private final String uploadDir = "E:/Medical-Dicom-Project/storage";
 
     // 파일을 저장하고 DB에 기록하는 핵심 로직
     //리포지토리에 정의한 Native Query를 호출하는 방식
@@ -75,38 +75,77 @@ public class DicomService {
         // JPA 의 save는 저장된 후 DB의 ID가 채워진 객체를 반환
         DicomEntity savedEntity = dicomRepository.save(dicomEntity);
 
-        // 5. 실제 DB에 저장된 ID 반환
+        // 실제 DB에 저장된 ID 반환
         return savedEntity.getId();
     }
 
+    @Transactional
     public void convertDicomToPng(Long id) throws Exception {
         // 1. DB에서 파일 경로 가져오기
         DicomEntity entity = dicomRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("해당 파일을 찾을 수 없습니다. ID: " + id));
+        String dicomPath = entity.getFilePath();
+        String pngPath = dicomPath.replaceAll("(?i)\\.dcm$","") + ".png";
+        File outputPngFile = new File(pngPath);
 
-        // 있으면 파일 경로로 파일 가져오기
-        File dicomFile = new File(entity.getFilePath());
+        try{
+            tryJavaConversion(dicomPath, pngPath);
+            System.out.println("자바 엔진 변환 성공: " + id);
+        } catch (Throwable e) {
+            System.err.println("자바 엔진 실패. 파이썬 엔진을 가동합니다.");
 
-        // 2. DICOM 읽기 준비
-        Iterator<ImageReader> iter = ImageIO.getImageReadersByFormatName("DICOM");
-        if (!iter.hasNext()) {
-            throw new RuntimeException("DICOM 리더를 찾을 수 없습니다. 라이브러리 설정을 확인해 보세요");
+            try {
+                runPythonConversion(dicomPath, pngPath);
+                System.out.println("파이썬 엔진 변환 성공: " + id);
+            } catch (Exception pyEx) {
+                System.err.println("최종 변환 실패" + pyEx.getMessage());
+                entity.setConversionStatus("FAILED");
+                dicomRepository.save(entity);
+                return;
+            }
         }
-        ImageReader reader = iter.next();
 
-        try(ImageInputStream imageInputStream = ImageIO.createImageInputStream(dicomFile)) {
-            reader.setInput(imageInputStream, false);
+        // 성공 시 DB 업데이트
+        entity.setPngPath("/images/" + outputPngFile.getName()); // 브라우저 접근 경로 저장
+        entity.setConversionStatus("SUCCESS"); // 변환 상태 성공 기록
+        entity.setConvertedAt(LocalDateTime.now()); // 변환 시간 기록
+        dicomRepository.save(entity);
+    }
 
-            // 3. DICOM의 첫 번째 프레임을 읽어 이미지로 변환
+    private void tryJavaConversion(String dicomPath, String pngPath) throws Exception {
+        ImageIO.scanForPlugins();
+        nu.pattern.OpenCV.loadShared();
+
+        File dicomFile = new File(dicomPath);
+
+        try (ImageInputStream imageInputStream = ImageIO.createImageInputStream(dicomFile)){
+            Iterator<ImageReader> iter = ImageIO.getImageReadersByFormatName("DICOM");
+            if (!iter.hasNext()) {
+                throw new RuntimeException("DICOM Reader 없음");
+            }
+
+            ImageReader reader = iter.next();
+            reader.setInput(imageInputStream,false);
             BufferedImage bufferedImage = reader.read(0);
 
-            // 4. 저장할 PNG 경로 설정 (기존 파일명에서 확장자만 변경)
-            String pngPath = entity.getFilePath().replaceAll("(?i)\\.dcm$", ".png"); // 파일 확장자가 .DCM / ,dcm이든 모두 .png로 바꿈.
-            File outputPng = new File(pngPath);
-
-            // 5. PNG 파일로 실제 저장
-            ImageIO.write(bufferedImage,"png", outputPng);
-            System.out.println("변환 완료! 저장 경로: " + pngPath);
+            if (!ImageIO.write(bufferedImage,"png",new File(pngPath))) {
+                throw new RuntimeException("PNG 쓰기 실패");
+            }
+            reader.dispose();
         }
+    }
+
+    private void runPythonConversion(String input, String output) throws Exception {
+        ProcessBuilder pb = new ProcessBuilder(
+                "python",
+                "E:/Medical-Dicom-Project/scripts/convert.py",
+                input,
+                output
+        );
+        pb.redirectErrorStream(true);
+        Process process = pb.start();
+
+        int exitCode = process.waitFor();
+        if (exitCode != 0) throw new RuntimeException("파이썬 프로세스 에러(Code: " + exitCode + ")");
     }
 }

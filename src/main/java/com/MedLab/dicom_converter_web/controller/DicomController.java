@@ -14,6 +14,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -62,7 +63,8 @@ public class DicomController {
     //전체 이력 조회 (GET)
     @GetMapping("/history")
     public ResponseEntity<?> getHistory() {
-        return ResponseEntity.ok("History List Placeholder");
+        List<DicomEntity> history = dicomRepository.findAll();
+        return ResponseEntity.ok(history);
     }
 
     //상세 조회(GET)
