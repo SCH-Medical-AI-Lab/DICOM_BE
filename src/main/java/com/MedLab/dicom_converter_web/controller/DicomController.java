@@ -69,33 +69,35 @@ public class DicomController {
 
     //상세 조회(GET)
     @GetMapping("/history/{id}")
-    public ResponseEntity<?> getDetail(@PathVariable int id) {
-        HashMap<String, Object> response = new HashMap<>();
-        response.put("id", id);
-        response.put("fileName", "test_image.dcm");
-        response.put("status", "SUCCESS");
-
-        //front-end 다운로드 버튼이 호출할 API 주소를 미리 알려줌.
-        response.put("downloadUrl", "/api/dicom/download/" + id);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<?> getDetail(@PathVariable Long id) {
+        return dicomRepository.findById(id)
+                .map(ResponseEntity::ok)  //DB에 있으면 객체 그대로 반환
+                .orElse(ResponseEntity.status(404).build());
     }
 
-    //파일 다운로드 엔드포인트
+    //파일 다운로드 엔드포인트 .dcm대신 .png를 다운로드 하도록 수정
     @GetMapping("/download/{id}")
     public ResponseEntity<Resource> downloadFile(@PathVariable Long id) {
         try {
             DicomEntity dicom = dicomRepository.findById(id)
                     .orElseThrow(()-> new RuntimeException("해당 ID의 파일을 찾을 수 없습니다." + id));
-            Path path = Paths.get(dicom.getFilePath());
+
+
+            String dcmPath = dicom.getFilePath();
+            String pngPath = dcmPath.replaceAll("(?i)\\.dcm$", "") + ".png"; // 확장자 교체
+
+            Path path = Paths.get(pngPath);
             Resource resource = new FileSystemResource(path);
 
             if (!resource.exists()) {
                 return ResponseEntity.status(404).build();
             }
 
+            String downloadFileName = dicom.getPatientName() + "_converted.png";
+
             return ResponseEntity.ok()
-                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + path.getFileName().toString()+"\"")
+                    .contentType(MediaType.IMAGE_PNG) // 타입을 png로 명시
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + downloadFileName +"\"")
                     .body(resource);
         } catch (Exception e) {
             return ResponseEntity.status(500).build();
