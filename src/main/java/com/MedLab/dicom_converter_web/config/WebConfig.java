@@ -1,13 +1,20 @@
 package com.MedLab.dicom_converter_web.config;
 
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
+
+    @Value("${dicom.storage.location}")
+    private String storageLocation;
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
@@ -23,8 +30,11 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         // E:/Medical-Dicom-Project/storage/ 경로를 /images/** 주소로 매핑
+        String projectRoot = System.getProperty("user.dir");
+        Path storagePath = Paths.get(projectRoot, storageLocation).toAbsolutePath();
+
         registry.addResourceHandler("/images/**")
-                .addResourceLocations("file:///E:/Medical-Dicom-Project/storage/");
+                .addResourceLocations("file:///" + storagePath.toString() +"/");
     }
 }
 

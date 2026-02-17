@@ -51,11 +51,11 @@ public class DicomController {
 
             Map<String, Object> response = new HashMap<>();
             response.put("id",id);
-            response.put("status","PROCESSING");
+            response.put("status","SUCCESS");
             response.put("message","Conversion Started");
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            return ResponseEntity.status(500).body("변환 실패: " + e.getMessage());
+            return ResponseEntity.status(500).body("FAILED" + e.getMessage());
         }
 
     }

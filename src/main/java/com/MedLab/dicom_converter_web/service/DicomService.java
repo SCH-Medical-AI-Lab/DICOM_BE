@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.dcm4che3.data.Attributes;
 import org.dcm4che3.data.Tag;
 import org.dcm4che3.io.DicomInputStream;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -16,8 +17,10 @@ import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
 import java.awt.image.BufferedImage;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
@@ -29,7 +32,14 @@ import java.util.UUID;
 public class DicomService {
     private final DicomRepository dicomRepository; // Constructor Dependency Injection
 
-    private final String uploadDir = "E:/Medical-Dicom-Project/storage";
+   @Value("${dicom.python.executable}")
+   private String pythonExe;
+
+   @Value("${dicom.python.script-path}")
+   private String pythonScriptPath;
+
+   @Value("${dicom.storage.location}")
+   private String uploadDir;
 
     // 파일을 저장하고 DB에 기록하는 핵심 로직
     //리포지토리에 정의한 Native Query를 호출하는 방식
@@ -136,14 +146,29 @@ public class DicomService {
     }
 
     private void runPythonConversion(String input, String output) throws Exception {
+
+        String projectRoot = System.getProperty("user.dir");
+        File scriptFile = new File(projectRoot, pythonScriptPath);
+
+        if(!scriptFile.exists()) {
+            throw new RuntimeException("파이썬 script 파일을 찾을 수 없음. 확인된 경로" + scriptFile.getAbsolutePath());
+        }
+
         ProcessBuilder pb = new ProcessBuilder(
-                "python",
-                "E:/Medical-Dicom-Project/scripts/convert.py",
+                pythonExe,
+                scriptFile.getAbsolutePath(),
                 input,
                 output
         );
         pb.redirectErrorStream(true);
         Process process = pb.start();
+
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream(),"MS949"))){
+            String line;
+            while ((line = br.readLine()) != null) {
+                System.out.println("[Python Log] " + line);
+            }
+        }
 
         int exitCode = process.waitFor();
         if (exitCode != 0) throw new RuntimeException("파이썬 프로세스 에러(Code: " + exitCode + ")");
