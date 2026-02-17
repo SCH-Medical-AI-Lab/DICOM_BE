@@ -1,0 +1,68 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '4.0.2'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.MedLab'
+version = '0.0.1-SNAPSHOT'
+description = 'Demo project for Spring Boot'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+    maven{ // repository 등록
+        url "https://maven.scijava.org/content/repositories/public/"
+    }
+    // dcm4che 공식 저장소 (추가)
+    maven { url 'https://www.dcm4che.org/maven2/' }
+    maven { url 'https://mvn.weasis.org/repository/maven-public/' }
+
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+// dcm4che (오타 수정됨)
+    implementation 'org.dcm4che:dcm4che-core:5.31.0'
+    implementation 'org.dcm4che:dcm4che-imageio:5.31.0' // 영상 처리 시
+    implementation 'org.dcm4che:dcm4che-image:5.31.0'
+    implementation 'org.dcm4che:dcm4che-dict:5.31.0'
+    implementation 'com.github.jai-imageio:jai-imageio-core:1.4.0'
+
+    // JPEG 2000 압축 방식을 지원하기 위한 코덱
+    implementation 'com.github.jai-imageio:jai-imageio-jpeg2000:1.4.0'
+    implementation 'org.dcm4che:dcm4che-imageio-opencv:5.31.0'
+    // PlanarImage 클래스를 포함하고 있는 Weasis OpenCV 핵심 라이브러리
+    implementation 'org.weasis.opencv:weasis-opencv-core:4.4.0'
+
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0'
+    implementation 'org.dcm4che:dcm4che-imageio-opencv:5.31.0'
+    implementation 'org.openpnp:opencv:4.5.1-2'
+
+
+    runtimeOnly 'com.mysql:mysql-connector-j'
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+	testImplementation 'org.springframework.boot:spring-boot-starter-thymeleaf-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
