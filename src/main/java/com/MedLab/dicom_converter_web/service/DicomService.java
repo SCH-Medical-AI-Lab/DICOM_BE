@@ -45,17 +45,27 @@ public class DicomService {
     //리포지토리에 정의한 Native Query를 호출하는 방식
     @Transactional // @Transactional이 붙은 메서드 내 모든 작업은 성공 시 commit, 예외 발생 시 rollback 처리되어, 데이터가 일부만 반영되는 것을 방지합니다.
     public Long uploadAndSaveDicom(MultipartFile file) throws IOException {
+        String projectRoot = System.getProperty("user.dir");
+        Path storageFolder = Paths.get(projectRoot, uploadDir).toAbsolutePath();
+
+        File targetDir = storageFolder.toFile();
+        if (!targetDir.exists()) {
+            targetDir.mkdirs();
+        }
+
         String originalFilename = file.getOriginalFilename();
         String savedName = String.valueOf(UUID.randomUUID()) + "_" + originalFilename;
-        Path savePath = Paths.get(uploadDir, savedName); // + 또는 , 가 있는데 +는 둘을 붙여버리고 , 는 OS에 맞는 구분자를 넣어준다.
+        Path savePath = storageFolder.resolve(savedName); // + 또는 , 가 있는데 +는 둘을 붙여버리고 , 는 OS에 맞는 구분자를 넣어준다.
 
         // 2. 물리적 폴더에 파일 저장
-        File targetFile = new File(uploadDir);
-        if (!targetFile.exists()) { //폴더에 없으면 생성.
-            targetFile.mkdirs(); //mkdirs 폴더 생성인데, 상위까지 디렉토리까지 자동으로 만듦. 훨씬 안전 mkdir은 해당 디렉토리만 만들고 상위경로가 맞지 않으면 실패함.
-        }
+//        File targetFile = new File(uploadDir);
+//        if (!targetFile.exists()) { //폴더에 없으면 생성.
+//            targetFile.mkdirs(); //mkdirs 폴더 생성인데, 상위까지 디렉토리까지 자동으로 만듦. 훨씬 안전 mkdir은 해당 디렉토리만 만들고 상위경로가 맞지 않으면 실패함.
+//        }
         // System.out.println("실제 저장 경로 : " + savePath.toAbsolutePath());
-        file.transferTo(savePath);
+        file.transferTo(savePath.toFile());
+
+        System.out.println("실제 저장 위치: " + savePath.toString());
 
         // 3. 초기값 설정 (DICOM이 아닐 경우 대비)
         String pName = "Unknown", pId ="Unknown", sDate = "", mod = "", sUid = "";
@@ -72,9 +82,14 @@ public class DicomService {
             System.out.println("DICOM 파일이 아니거나 정보를 읽을 수 없음" + e.getMessage());
         }
 
+
+
+
         //4. DicomEntity 객체 생성 및 save() 호출
         DicomEntity dicomEntity = new DicomEntity();
         dicomEntity.setFilePath(savePath.toString());
+
+
         dicomEntity.setPatientName(pName);
         dicomEntity.setPatientId(pId);
         dicomEntity.setStudyDate(sDate);
